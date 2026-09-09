@@ -1,0 +1,120 @@
+import * as vscode from 'vscode';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { parseShortstat } from './shortstat';
+
+const exec = promisify(execFile);
+
+let item: vscode.StatusBarItem;
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+export function activate(context: vscode.ExtensionContext) {
+  item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  item.command = 'gitDiffLineViz.pickBranch';
+  context.subscriptions.push(item);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitDiffLineViz.pickBranch', pickBranch),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('gitDiffLineViz')) schedule();
+    }),
+    vscode.workspace.onDidSaveTextDocument(() => schedule()),
+    vscode.window.onDidChangeWindowState((s) => {
+      if (s.focused) schedule();
+    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => schedule()),
+  );
+
+  const folder = wsFolder();
+  if (folder) {
+    // ponytail: assumes workspace folder == repo root; window-focus/save refresh covers the rest
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(folder, '.git/{HEAD,index}'),
+    );
+    watcher.onDidChange(schedule);
+    watcher.onDidCreate(schedule);
+    context.subscriptions.push(watcher);
+  }
+
+  void refresh();
+}
+
+export function deactivate() {
+  if (timer) clearTimeout(timer);
+}
+
+function wsFolder(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function schedule() {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => void refresh(), 300);
+}
+
+async function git(cwd: string, args: string[]): Promise<string> {
+  const { stdout } = await exec('git', args, { cwd, windowsHide: true });
+  return stdout.toString();
+}
+
+async function refresh() {
+  const folder = wsFolder();
+  if (!folder) {
+    item.hide();
+    return;
+  }
+  const cfg = vscode.workspace.getConfiguration('gitDiffLineViz');
+  const target = cfg.get<string>('targetBranch', 'main');
+  const includeWT = cfg.get<boolean>('includeWorkingTree', true);
+  try {
+    const base = (await git(folder, ['merge-base', target, 'HEAD'])).trim();
+    const args = includeWT
+      ? ['diff', '--shortstat', base]
+      : ['diff', '--shortstat', base, 'HEAD'];
+    const { insertions, deletions } = parseShortstat(await git(folder, args));
+    item.text = `$(git-compare) ${target} +${insertions} -${deletions}`;
+    item.tooltip =
+      `Diff vs ${target} (merge-base)\n` +
+      `+${insertions} insertions, -${deletions} deletions` +
+      (includeWT ? '\nincluding working tree' : '') +
+      '\nClick to change target branch';
+    item.show();
+  } catch (e) {
+    item.text = `$(git-compare) ${target} —`;
+    item.tooltip = `git-diff-line-viz: ${message(e)}`;
+    item.show();
+  }
+}
+
+async function pickBranch() {
+  const folder = wsFolder();
+  if (!folder) return;
+  let branches: string[];
+  try {
+    const out = await git(folder, [
+      'for-each-ref',
+      '--format=%(refname:short)',
+      'refs/heads',
+      'refs/remotes',
+    ]);
+    branches = out
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((b) => b && !b.endsWith('/HEAD'));
+  } catch (e) {
+    vscode.window.showErrorMessage(`git-diff-line-viz: ${message(e)}`);
+    return;
+  }
+  const pick = await vscode.window.showQuickPick(branches, {
+    placeHolder: 'Select target branch to compare against',
+  });
+  if (!pick) return;
+  await vscode.workspace
+    .getConfiguration('gitDiffLineViz')
+    .update('targetBranch', pick, vscode.ConfigurationTarget.Workspace);
+  void refresh();
+}
+
+function message(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
