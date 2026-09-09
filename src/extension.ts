@@ -1,31 +1,37 @@
-import * as vscode from 'vscode';
-import { git, gitDiffCounts } from './diff';
+import * as vscode from "vscode";
+import { git, gitDiffCounts, resolveTarget } from "./diff";
 
-let item: vscode.StatusBarItem;
+// Two adjacent items so insertions/deletions can carry their own colour.
+let addItem: vscode.StatusBarItem;
+let delItem: vscode.StatusBarItem;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
+const ADDED = new vscode.ThemeColor("gitDecoration.addedResourceForeground");
+const DELETED = new vscode.ThemeColor("gitDecoration.deletedResourceForeground");
+
 export function activate(context: vscode.ExtensionContext) {
-  item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  item.command = 'gitDiffLineViz.pickBranch';
-  context.subscriptions.push(item);
+  addItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  delItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  for (const it of [addItem, delItem]) {
+    it.command = "gitDiffLineViz.pickBranch";
+    context.subscriptions.push(it);
+  }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitDiffLineViz.pickBranch', pickBranch),
+    vscode.commands.registerCommand("gitDiffLineViz.pickBranch", pickBranch),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('gitDiffLineViz')) schedule();
+      if (e.affectsConfiguration("gitDiffLineViz")) schedule();
     }),
     vscode.workspace.onDidSaveTextDocument(() => schedule()),
-    vscode.window.onDidChangeWindowState((s) => {
-      if (s.focused) schedule();
-    }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => schedule()),
   );
 
   const folder = wsFolder();
   if (folder) {
-    // ponytail: assumes workspace folder == repo root; window-focus/save refresh covers the rest
+    // Catches branch switches (checkout/rebase) and commits made outside the editor.
+    // ponytail: assumes workspace folder == repo root.
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(folder, '.git/{HEAD,index}'),
+      new vscode.RelativePattern(folder, ".git/{HEAD,index}"),
     );
     watcher.onDidChange(schedule);
     watcher.onDidCreate(schedule);
@@ -43,6 +49,8 @@ function wsFolder(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
+// Debounced refresh: coalesces bursts (e.g. "Save All", a rebase touching many refs)
+// into a single `git` invocation.
 function schedule() {
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => void refresh(), 300);
@@ -51,25 +59,35 @@ function schedule() {
 async function refresh() {
   const folder = wsFolder();
   if (!folder) {
-    item.hide();
+    addItem.hide();
+    delItem.hide();
     return;
   }
-  const cfg = vscode.workspace.getConfiguration('gitDiffLineViz');
-  const target = cfg.get<string>('targetBranch', 'main');
-  const includeWT = cfg.get<boolean>('includeWorkingTree', true);
+  const cfg = vscode.workspace.getConfiguration("gitDiffLineViz");
+  const includeWT = cfg.get<boolean>("includeWorkingTree", true);
+  let target = cfg.get<string>("targetBranch", "");
   try {
+    target = await resolveTarget(folder, target);
     const { insertions, deletions } = await gitDiffCounts(folder, target, includeWT);
-    item.text = `$(git-compare) ${target} +${insertions} -${deletions}`;
-    item.tooltip =
+    addItem.text = `$(git-compare) ${target} +${insertions}`;
+    addItem.color = ADDED;
+    delItem.text = `-${deletions}`;
+    delItem.color = DELETED;
+    const tip =
       `Diff vs ${target} (merge-base)\n` +
       `+${insertions} insertions, -${deletions} deletions` +
-      (includeWT ? '\nincluding working tree' : '') +
-      '\nClick to change target branch';
-    item.show();
+      (includeWT ? "\nincluding working tree" : "") +
+      "\nClick to change target branch";
+    addItem.tooltip = tip;
+    delItem.tooltip = tip;
+    addItem.show();
+    delItem.show();
   } catch (e) {
-    item.text = `$(git-compare) ${target} —`;
-    item.tooltip = `git-diff-line-viz: ${message(e)}`;
-    item.show();
+    addItem.text = `$(git-compare) ${target || "?"} —`;
+    addItem.color = undefined;
+    addItem.tooltip = `git-diff-line-viz: ${message(e)}`;
+    addItem.show();
+    delItem.hide();
   }
 }
 
@@ -79,26 +97,26 @@ async function pickBranch() {
   let branches: string[];
   try {
     const out = await git(folder, [
-      'for-each-ref',
-      '--format=%(refname:short)',
-      'refs/heads',
-      'refs/remotes',
+      "for-each-ref",
+      "--format=%(refname:short)",
+      "refs/heads",
+      "refs/remotes",
     ]);
     branches = out
-      .split('\n')
+      .split("\n")
       .map((s) => s.trim())
-      .filter((b) => b && !b.endsWith('/HEAD'));
+      .filter((b) => b && !b.endsWith("/HEAD"));
   } catch (e) {
     vscode.window.showErrorMessage(`git-diff-line-viz: ${message(e)}`);
     return;
   }
   const pick = await vscode.window.showQuickPick(branches, {
-    placeHolder: 'Select target branch to compare against',
+    placeHolder: "Select target branch to compare against",
   });
   if (!pick) return;
   await vscode.workspace
-    .getConfiguration('gitDiffLineViz')
-    .update('targetBranch', pick, vscode.ConfigurationTarget.Workspace);
+    .getConfiguration("gitDiffLineViz")
+    .update("targetBranch", pick, vscode.ConfigurationTarget.Workspace);
   void refresh();
 }
 

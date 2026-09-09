@@ -1,19 +1,34 @@
 {
   "name": "git-diff-line-viz",
   "displayName": "Git Diff Line Viz",
-  "description": "Show +/- line diff between a target branch and the current branch in the status bar.",
   "version": "0.0.1",
-  "publisher": "local",
-  "engines": {
-    "vscode": "^1.75.0"
-  },
+  "description": "Show +/- line diff between a target branch and the current branch in the status bar.",
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "publisher": "local",
   "main": "./out/extension.js",
+  "scripts": {
+    "build": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode",
+    "watch": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode --watch",
+    "test": "bun test ./test",
+    "test:e2e": "bun test ./e2e",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint",
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check .",
+    "prepare": "lefthook install",
+    "vscode:prepublish": "bun run build"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/node": "^20",
+    "@types/vscode": "^1.75.0",
+    "lefthook": "^2.1.12",
+    "oxfmt": "^0",
+    "oxlint": "^1",
+    "typescript": "^5"
+  },
   "contributes": {
     "commands": [
       {
@@ -26,8 +41,8 @@
       "properties": {
         "gitDiffLineViz.targetBranch": {
           "type": "string",
-          "default": "main",
-          "description": "Branch to compare the current branch against (merge-base)."
+          "default": "",
+          "description": "Branch to compare the current branch against (merge-base). Empty = the repository's default branch (origin/HEAD, else main/master)."
         },
         "gitDiffLineViz.includeWorkingTree": {
           "type": "boolean",
@@ -37,18 +52,10 @@
       }
     }
   },
-  "scripts": {
-    "build": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode",
-    "watch": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode --watch",
-    "test": "bun test ./test",
-    "test:e2e": "bun test ./e2e",
-    "prepare": "lefthook install",
-    "vscode:prepublish": "bun run build"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/vscode": "^1.75.0",
-    "lefthook": "^2.1.12",
-    "typescript": "^5"
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "engines": {
+    "vscode": "^1.75.0"
   }
 }

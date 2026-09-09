@@ -1,4 +1,11 @@
 pre-push:
+  parallel: true
   commands:
+    lint:
+      run: bun run lint
+    fmt:
+      run: bun run fmt:check
+    typecheck:
+      run: bun run typecheck
     e2e:
       run: bun run test:e2e
