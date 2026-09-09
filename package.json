@@ -40,12 +40,15 @@
   "scripts": {
     "build": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode",
     "watch": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode --watch",
-    "test": "bun test",
+    "test": "bun test ./test",
+    "test:e2e": "bun test ./e2e",
+    "prepare": "lefthook install",
     "vscode:prepublish": "bun run build"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/vscode": "^1.75.0",
+    "lefthook": "^2.1.12",
     "typescript": "^5"
   }
 }

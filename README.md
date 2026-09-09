@@ -20,10 +20,13 @@ $(git-compare) main +120 -45
 ## Develop
 
 ```sh
-bun install
-bun test        # parser unit tests
-bun run build   # -> out/extension.js
+bun install          # also installs the lefthook pre-push hook
+bun test             # fast unit tests (test/)
+bun run test:e2e     # integration tests against a throwaway git repo (e2e/)
+bun run build        # -> out/extension.js
 ```
+
+`bun run test:e2e` also runs automatically on `git push` (lefthook `pre-push`).
 
 Press <kbd>F5</kbd> in VS Code to launch an Extension Development Host.
 The built `out/extension.js` runs on VS Code's Node runtime; Bun is only the

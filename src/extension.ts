@@ -1,9 +1,5 @@
 import * as vscode from 'vscode';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { parseShortstat } from './shortstat';
-
-const exec = promisify(execFile);
+import { git, gitDiffCounts } from './diff';
 
 let item: vscode.StatusBarItem;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,11 +48,6 @@ function schedule() {
   timer = setTimeout(() => void refresh(), 300);
 }
 
-async function git(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec('git', args, { cwd, windowsHide: true });
-  return stdout.toString();
-}
-
 async function refresh() {
   const folder = wsFolder();
   if (!folder) {
@@ -67,11 +58,7 @@ async function refresh() {
   const target = cfg.get<string>('targetBranch', 'main');
   const includeWT = cfg.get<boolean>('includeWorkingTree', true);
   try {
-    const base = (await git(folder, ['merge-base', target, 'HEAD'])).trim();
-    const args = includeWT
-      ? ['diff', '--shortstat', base]
-      : ['diff', '--shortstat', base, 'HEAD'];
-    const { insertions, deletions } = parseShortstat(await git(folder, args));
+    const { insertions, deletions } = await gitDiffCounts(folder, target, includeWT);
     item.text = `$(git-compare) ${target} +${insertions} -${deletions}`;
     item.tooltip =
       `Diff vs ${target} (merge-base)\n` +

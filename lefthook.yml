@@ -1,0 +1,4 @@
+pre-push:
+  commands:
+    e2e:
+      run: bun run test:e2e
