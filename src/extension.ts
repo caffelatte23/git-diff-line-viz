@@ -1,21 +1,14 @@
 import * as vscode from "vscode";
-import { git, gitDiffCounts, resolveTarget } from "./diff";
+import { git, gitDiffCounts } from "./diff";
 
-// Two adjacent items so insertions/deletions can carry their own colour.
-let addItem: vscode.StatusBarItem;
-let delItem: vscode.StatusBarItem;
+// One item, default colour, like the built-in branch/sync indicator.
+let item: vscode.StatusBarItem;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
-const ADDED = new vscode.ThemeColor("gitDecoration.addedResourceForeground");
-const DELETED = new vscode.ThemeColor("gitDecoration.deletedResourceForeground");
-
 export function activate(context: vscode.ExtensionContext) {
-  addItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  delItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
-  for (const it of [addItem, delItem]) {
-    it.command = "gitDiffLineViz.pickBranch";
-    context.subscriptions.push(it);
-  }
+  item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  item.command = "gitDiffLineViz.pickBranch";
+  context.subscriptions.push(item);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("gitDiffLineViz.pickBranch", pickBranch),
@@ -59,35 +52,26 @@ function schedule() {
 async function refresh() {
   const folder = wsFolder();
   if (!folder) {
-    addItem.hide();
-    delItem.hide();
+    item.hide();
     return;
   }
   const cfg = vscode.workspace.getConfiguration("gitDiffLineViz");
   const includeWT = cfg.get<boolean>("includeWorkingTree", true);
-  let target = cfg.get<string>("targetBranch", "");
+  const target = cfg.get<string>("targetBranch", "").trim() || "HEAD";
   try {
-    target = await resolveTarget(folder, target);
     const { insertions, deletions } = await gitDiffCounts(folder, target, includeWT);
-    addItem.text = `$(git-compare) ${target} +${insertions}`;
-    addItem.color = ADDED;
-    delItem.text = `-${deletions}`;
-    delItem.color = DELETED;
-    const tip =
+    // Compact, like the built-in sync indicator: `main +120 -45`.
+    item.text = `$(git-compare) ${target} +${insertions} -${deletions}`;
+    item.tooltip =
       `Diff vs ${target} (merge-base)\n` +
       `+${insertions} insertions, -${deletions} deletions` +
       (includeWT ? "\nincluding working tree" : "") +
       "\nClick to change target branch";
-    addItem.tooltip = tip;
-    delItem.tooltip = tip;
-    addItem.show();
-    delItem.show();
+    item.show();
   } catch (e) {
-    addItem.text = `$(git-compare) ${target || "?"} —`;
-    addItem.color = undefined;
-    addItem.tooltip = `git-diff-line-viz: ${message(e)}`;
-    addItem.show();
-    delItem.hide();
+    item.text = `$(git-compare) ${target || "?"} —`;
+    item.tooltip = `git-diff-line-viz: ${message(e)}`;
+    item.show();
   }
 }
 
