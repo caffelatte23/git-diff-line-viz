@@ -34,7 +34,13 @@ jobs:
         run: bunx @vscode/vsce package --no-dependencies -o "${{ github.event.repository.name }}-${GITHUB_REF_NAME}.vsix"
 
       - name: Publish to VS Code Marketplace
-        run: bunx @vscode/vsce publish --no-dependencies --packagePath *.vsix
+        # The gallery API sometimes stalls (vsce times out at 3 min); retry a few times.
+        run: |
+          for i in 1 2 3 4 5; do
+            bunx @vscode/vsce publish --no-dependencies --packagePath *.vsix && exit 0
+            echo "attempt $i failed, retrying in 30s..." && sleep 30
+          done
+          exit 1
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
