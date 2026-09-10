@@ -9,33 +9,11 @@ export async function git(cwd: string, args: string[]): Promise<string> {
   return stdout.toString();
 }
 
-async function tryGit(cwd: string, args: string[]): Promise<string | undefined> {
-  try {
-    return (await git(cwd, args)).trim();
-  } catch {
-    return undefined;
-  }
-}
-
 /**
- * Resolve the branch to compare against. A non-empty `configured` value wins;
- * otherwise fall back to the repository's default branch (origin/HEAD), then
- * to a local `main`/`master`.
+ * Insertions/deletions of the current branch vs `target`, measured from their
+ * merge-base. `target` is a branch name, or `"HEAD"` to compare against the
+ * current branch tip (i.e. show only uncommitted work).
  */
-export async function resolveTarget(cwd: string, configured: string): Promise<string> {
-  const c = configured.trim();
-  if (c) return c;
-
-  const originHead = await tryGit(cwd, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-  if (originHead) return originHead.replace(/^origin\//, "");
-
-  for (const b of ["main", "master"]) {
-    if (await tryGit(cwd, ["rev-parse", "--verify", "--quiet", b])) return b;
-  }
-  return "main";
-}
-
-/** Insertions/deletions of the current branch vs `target`, measured from their merge-base. */
 export async function gitDiffCounts(
   cwd: string,
   target: string,

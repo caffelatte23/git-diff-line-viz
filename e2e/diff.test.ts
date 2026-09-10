@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gitDiffCounts, resolveTarget } from "../src/diff";
+import { gitDiffCounts } from "../src/diff";
 
 let hasGit = true;
 try {
@@ -47,9 +47,14 @@ test.skipIf(!hasGit)("committed insertions vs merge-base", async () => {
   expect(await gitDiffCounts(repo, "main", false)).toEqual({ insertions: 7, deletions: 0 });
 });
 
-test.skipIf(!hasGit)("resolveTarget: configured value wins, else falls back to main", async () => {
-  expect(await resolveTarget(repo, "feature")).toBe("feature");
-  expect(await resolveTarget(repo, "  ")).toBe("main"); // no origin/HEAD in this repo
+test.skipIf(!hasGit)('target "HEAD" counts only uncommitted work', async () => {
+  expect(await gitDiffCounts(repo, "HEAD", true)).toEqual({ insertions: 0, deletions: 0 });
+  write("b.txt", 6); // 4 -> 6 : +2 unstaged
+  try {
+    expect(await gitDiffCounts(repo, "HEAD", true)).toEqual({ insertions: 2, deletions: 0 });
+  } finally {
+    write("b.txt", 4); // restore
+  }
 });
 
 test.skipIf(!hasGit)("includeWorkingTree adds uncommitted changes", async () => {
