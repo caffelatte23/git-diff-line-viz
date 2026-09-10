@@ -7,10 +7,9 @@ on:
 jobs:
   marketplace:
     runs-on: ubuntu-latest
-    environment: release # federated-credential subject + optional required reviewers
+    environment: release # optional required reviewers
     permissions:
       contents: write # create the GitHub Release
-      id-token: write # Entra ID federated login (OIDC)
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -34,15 +33,10 @@ jobs:
       - name: Package .vsix
         run: bunx @vscode/vsce package --no-dependencies -o "${{ github.event.repository.name }}-${GITHUB_REF_NAME}.vsix"
 
-      - name: Azure login (federated)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
-
       - name: Publish to VS Code Marketplace
-        run: bunx @vscode/vsce publish --no-dependencies --azure-credential --packagePath *.vsix
+        run: bunx @vscode/vsce publish --no-dependencies --packagePath *.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: GitHub Release
         run: |

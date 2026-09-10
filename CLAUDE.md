@@ -58,12 +58,11 @@ bun run package      # build a .vsix locally (vsce package --no-dependencies)
 
 `.github/workflows/release.yml` runs when a `v*` tag is pushed. The `marketplace`
 job checks the tag matches `package.json` `version`, runs the checks, builds,
-`bunx @vscode/vsce package`, logs in to Entra ID with a GitHub OIDC token
-(`azure/login`, no stored secret), `bunx @vscode/vsce publish --azure-credential`,
-and creates a GitHub Release whose notes are the matching `## [x.y.z]` section of
-`CHANGELOG.md` (falling back to auto-generated notes), with the `.vsix` attached.
-An opt-in `open-vsx` job publishes to Open VSX (`bunx ovsx publish`) when the repo
-variable `PUBLISH_OPEN_VSX` is `true` and secret `OVSX_PAT` is set.
+`bunx @vscode/vsce package`, `bunx @vscode/vsce publish` (auth via the `VSCE_PAT`
+secret), and creates a GitHub Release whose notes are the matching `## [x.y.z]`
+section of `CHANGELOG.md` (falling back to auto-generated notes), with the `.vsix`
+attached. An opt-in `open-vsx` job publishes to Open VSX (`bunx ovsx publish`)
+when the repo variable `PUBLISH_OPEN_VSX` is `true` and secret `OVSX_PAT` is set.
 
 `vsce` / `ovsx` are run via `bunx` (fetched per-run, pinned by name only), not
 kept as devDependencies.
@@ -71,26 +70,16 @@ kept as devDependencies.
 ### One-time setup (manual, not automatable)
 
 1. **Publisher**: create one at <https://marketplace.visualstudio.com/manage>,
-   then set `"publisher"` in `package.json` (`CaffeLatte23`).
-2. **Entra ID app**: register an application (<https://entra.microsoft.com> →
-   App registrations). Note its **Application (client) ID** and **Directory
-   (tenant) ID**.
-3. **Federated credential** on that app (Certificates & secrets → Federated
-   credentials → _GitHub Actions deploying Azure resources_):
-   - Organization `caffelatte23`, Repository `git-diff-line-viz`
-   - Entity type **Environment**, name `release`
-     (subject: `repo:caffelatte23/git-diff-line-viz:environment:release`)
-4. **Marketplace membership**: in publisher management, add the app's service
-   principal as a member so it may publish.
-5. **GitHub**: create an Environment named `release` (Settings → Environments;
-   add required reviewers here if wanted) and two secrets — `AZURE_CLIENT_ID`,
-   `AZURE_TENANT_ID` (repo or `release`-environment scope). No client secret.
-6. Optional (Open VSX): repo variable `PUBLISH_OPEN_VSX=true` + secret `OVSX_PAT`
+   then set `"publisher"` in `package.json` to its **ID** (`CaffeLatte23`).
+2. **PAT**: at <https://dev.azure.com> → User settings → Personal access tokens →
+   New, scope **Marketplace → Manage**, all organisations. (Consider using an
+   Entra service principal with `--azure-credential` instead; it was more fiddly
+   to authorise here so this project uses a PAT.)
+3. **GitHub**: add the token as the `VSCE_PAT` secret (repo or `release`
+   environment scope). Optionally create a `release` Environment with required
+   reviewers.
+4. Optional (Open VSX): repo variable `PUBLISH_OPEN_VSX=true` + secret `OVSX_PAT`
    (from <https://open-vsx.org> → user settings → access tokens).
-
-PAT fallback: `vsce publish -p <PAT>` (or `VSCE_PAT` env) still works if you'd
-rather skip the federated setup — swap the `azure/login` + `--azure-credential`
-steps for a `VSCE_PAT` secret.
 
 ### Cutting a release
 
