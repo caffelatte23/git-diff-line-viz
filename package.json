@@ -1,7 +1,7 @@
 {
   "name": "git-diff-line-viz",
   "displayName": "Git Diff Line Viz",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Show +/- line diff between a target branch and the current branch in the status bar.",
   "categories": [
     "Other"
