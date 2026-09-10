@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  marketplace:
+    runs-on: ubuntu-latest
+    environment: release # federated-credential subject + optional required reviewers
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # Entra ID federated login (OIDC)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+
+      - name: Tag must match package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package.json=$PKG"
+          test "$TAG" = "$PKG"
+
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run test:e2e
+      - run: bun run build
+
+      - name: Package .vsix
+        run: bunx @vscode/vsce package --no-dependencies -o "${{ github.event.repository.name }}-${GITHUB_REF_NAME}.vsix"
+
+      - name: Azure login (federated)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish to VS Code Marketplace
+        run: bunx @vscode/vsce publish --no-dependencies --azure-credential --packagePath *.vsix
+
+      - name: GitHub Release
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          awk -v v="$VER" '/^## / { if (p) exit; if (index($0, v)) { p=1; next } } p' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then
+            gh release create "$GITHUB_REF_NAME" *.vsix --title "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" *.vsix --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  open-vsx:
+    runs-on: ubuntu-latest
+    if: vars.PUBLISH_OPEN_VSX == 'true' # set the repo variable + OVSX_PAT secret to enable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Publish to Open VSX
+        run: bunx ovsx publish -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}

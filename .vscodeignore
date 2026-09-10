@@ -1,9 +1,16 @@
 src/**
 test/**
 e2e/**
+**/*.svg
+.github/**
+.vscode/**
 lefthook.yml
 tsconfig.json
 .gitignore
+.oxlintrc.json
+.oxfmtrc.json
+CLAUDE.md
 node_modules/**
 bun.lock
+*.vsix
 **/*.map

@@ -6,7 +6,12 @@
   "categories": [
     "Other"
   ],
-  "publisher": "local",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caffelatte23/git-diff-line-viz.git"
+  },
+  "publisher": "CaffeLatte23",
   "main": "./out/extension.js",
   "scripts": {
     "build": "bun build src/extension.ts --target=node --format=cjs --outfile=out/extension.js --external vscode",
@@ -17,6 +22,8 @@
     "lint": "oxlint",
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
+    "package": "bunx @vscode/vsce package --no-dependencies",
+    "icon:png": "bunx sharp-cli -i logo.svg -o images/icon.png resize 128 128",
     "prepare": "lefthook install",
     "vscode:prepublish": "bun run build"
   },
@@ -41,8 +48,8 @@
       "properties": {
         "gitDiffLineViz.targetBranch": {
           "type": "string",
-          "default": "",
-          "description": "Branch to compare the current branch against (merge-base). Empty = the repository's default branch (origin/HEAD, else main/master)."
+          "default": "HEAD",
+          "description": "What to compare the current branch against (merge-base). A branch name (e.g. \"main\"), or \"HEAD\" for the current branch tip (shows only uncommitted work). Empty = \"HEAD\"."
         },
         "gitDiffLineViz.includeWorkingTree": {
           "type": "boolean",
@@ -55,6 +62,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.75.0"
   }
