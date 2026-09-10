@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/caffelatte23/git-diff-line-viz/HEAD/images/icon.png" width="128" height="128" alt="Git Diff Line Viz logo">
-</p>
-
 # Git Diff Line Viz
 
 A single status-bar item showing how many lines the current branch adds and
