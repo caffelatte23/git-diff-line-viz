@@ -1,37 +1,42 @@
 # Git Diff Line Viz
 
-Status-bar item showing the line diff of the current branch against a target.
+A single status-bar item showing how many lines the current branch adds and
+removes compared to a target — like the built-in branch/sync indicator, but for
+line counts.
 
 ```
-$(git-compare) HEAD +120 -45
+⎇ HEAD +120 -45
 ```
 
-- Compares against the **merge-base** of the target and `HEAD` (three-dot / PR-style diff).
-- One compact item, like the built-in branch/sync indicator.
-- Click it to pick the target branch (saved to workspace settings).
-- Refreshes on file save, branch switch (`.git/HEAD` / `index`), and config change; 300 ms debounce.
+By default it compares against `HEAD`, so the numbers are just your uncommitted
+work. Set a branch name (e.g. `main`) and it shows how far the current branch has
+diverged, measured from where the two branches last met (the merge-base — the
+same "…" diff GitHub shows on a pull request).
+
+## Usage
+
+- The item appears on the left of the status bar whenever the workspace is a git
+  repository.
+- **Click it** to pick the branch to compare against. Your choice is saved to the
+  workspace settings.
+- It updates on save, when you switch branches, and when you change the settings.
+- Hover for the full breakdown.
 
 ## Settings
 
-| Setting                             | Default  | Meaning                                                                                                    |
-| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `gitDiffLineViz.targetBranch`       | `"HEAD"` | A branch name (e.g. `main`), or `HEAD` for the current branch tip (only uncommitted work). Empty = `HEAD`. |
-| `gitDiffLineViz.includeWorkingTree` | `true`   | Count uncommitted (staged + unstaged) changes too.                                                         |
+| Setting                             | Default | Description                                                                                                                                                         |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitDiffLineViz.targetBranch`       | `HEAD`  | Branch name to compare against, or `HEAD` for the current branch tip (uncommitted work only). Empty is treated as `HEAD`. Also set by clicking the status-bar item. |
+| `gitDiffLineViz.includeWorkingTree` | `true`  | Include uncommitted (staged + unstaged) changes in the counts. Turn off to compare only committed history.                                                          |
 
-## Develop
+## Requirements
 
-```sh
-bun install          # also installs the lefthook pre-push hook
-bun test             # fast unit tests (test/)
-bun run test:e2e     # integration tests against a throwaway git repo (e2e/)
-bun run lint         # oxlint
-bun run fmt          # oxfmt --write
-bun run typecheck    # tsc --noEmit
-bun run build        # -> out/extension.js
-```
+`git` must be on your `PATH`. Only the first workspace folder is tracked.
 
-`git push` runs `lint`, `fmt:check`, `typecheck`, and `test:e2e` via lefthook (`pre-push`).
+## Release notes
 
-Press <kbd>F5</kbd> in VS Code to launch an Extension Development Host.
-The built `out/extension.js` runs on VS Code's Node runtime; Bun is only the
-package manager / bundler / test runner.
+See the [Changelog](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE)
